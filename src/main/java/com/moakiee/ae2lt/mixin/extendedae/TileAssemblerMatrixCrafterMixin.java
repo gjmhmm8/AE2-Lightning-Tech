@@ -15,6 +15,7 @@ import com.glodblock.github.extendedae.common.me.matrix.ClusterAssemblerMatrix;
 import com.glodblock.github.extendedae.common.tileentities.matrix.TileAssemblerMatrixCrafter;
 import com.moakiee.ae2lt.extendedae.AssemblerMatrixParallelCoreHost;
 import com.moakiee.ae2lt.extendedae.AssemblerMatrixParallelCoreRules;
+import com.moakiee.ae2lt.extendedae.CrafterFastBusyCount;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
@@ -33,7 +34,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Pseudo
 @Mixin(value = TileAssemblerMatrixCrafter.class, remap = false)
-public abstract class TileAssemblerMatrixCrafterMixin {
+public abstract class TileAssemblerMatrixCrafterMixin implements CrafterFastBusyCount {
 
     @Shadow
     @Final
@@ -52,6 +53,16 @@ public abstract class TileAssemblerMatrixCrafterMixin {
 
     @Unique
     private int ae2lt$extraStates;
+
+    @Override
+    public int ae2lt$usedThreadFast() {
+        // Vanilla `usedThread()` is O(threads × inv-slots) because each thread
+        // probes `InternalInventory.isEmpty()` which allocates an iterator.
+        // EAE's `states` short already mirrors thread occupancy via
+        // `updateSleepiness()` calls in acceptJob/tick/stop, so a popcnt on
+        // the bitmask reproduces the same count with zero allocation.
+        return Integer.bitCount(this.states & 0xFFFF) + Integer.bitCount(this.ae2lt$extraStates);
+    }
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void ae2lt$createExtraThreads(BlockPos pos, BlockState blockState, CallbackInfo ci) {

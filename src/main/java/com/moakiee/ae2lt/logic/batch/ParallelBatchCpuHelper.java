@@ -100,84 +100,150 @@ public final class ParallelBatchCpuHelper {
         int slots = inputs.length;
         AEKey[] chosenKeys = new AEKey[slots];
         long[] perCopyUnits = new long[slots];
+        // availCache[i] = raw inv.list.get(chosenKeys[i]) snapshot from Phase 1's
+        // SIMULATE. Phase 2 reads from this cache instead of issuing a second
+        // SIMULATE per unique key, halving Phase-1+2 inventory HashMap probes
+        // (~slots saved per call) and saving wrapper-method dispatch overhead.
+        long[] availCache = new long[slots];
 
-        // Phase 1: per-slot SIMULATE-only — pick best variant. No inventory mutation
-        // yet; we'll do the actual MODULATE in phase 3 once we know the global
-        // batch size after cross-slot aggregation.
+        // -- Phase 1: per-slot variant pick (SIMULATE only) -------------------
+        // Use Long.MAX_VALUE so the returned value is the raw inventory amount,
+        // not the clamped (avail, perCopy*maxCraft) value. Phase 2's aggregator
+        // wants the unclamped figure anyway, and `canDo = avail / perCopy`
+        // converges to the same number when clamped.
         for (int i = 0; i < slots; i++) {
             var input = inputs[i];
             long mult = input.getMultiplier();
+            var possibles = input.getPossibleInputs();
+
+            // Fast path: AE2's `AEPatternHelper.condenseStacks` collapses
+            // identical ingredients to a single IInput, so the vast majority
+            // of patterns surface ONE variant per slot here. Skip the inner
+            // loop entirely in that case.
+            if (possibles.length == 1) {
+                var only = possibles[0];
+                if (!(only.what() instanceof AEItemKey)) return null;
+                long perCopy = only.amount() * mult;
+                if (perCopy <= 0) return null;
+                long avail = inv.extract(only.what(), Long.MAX_VALUE, Actionable.SIMULATE);
+                if (avail < perCopy) return null;
+                chosenKeys[i] = only.what();
+                perCopyUnits[i] = perCopy;
+                availCache[i] = avail;
+                continue;
+            }
 
             AEKey bestKey = null;
             long bestPerCopy = 0;
-            long bestSimAvail = 0;
+            long bestAvail = 0;
             long bestCopies = 0;
-
-            for (var possible : input.getPossibleInputs()) {
+            for (var possible : possibles) {
                 if (!(possible.what() instanceof AEItemKey)) continue;
                 long perCopy = possible.amount() * mult;
                 if (perCopy <= 0) continue;
-                long need = perCopy * maxCraft;
-                long avail = inv.extract(possible.what(), need, Actionable.SIMULATE);
+                long avail = inv.extract(possible.what(), Long.MAX_VALUE, Actionable.SIMULATE);
                 long canDo = avail / perCopy;
                 if (canDo > bestCopies) {
                     bestKey = possible.what();
                     bestPerCopy = perCopy;
-                    bestSimAvail = avail;
+                    bestAvail = avail;
                     bestCopies = canDo;
+                    if (bestCopies >= (long) maxCraft) break;
                 }
-                if (bestCopies >= maxCraft) break;
             }
-
-            if (bestKey == null || bestCopies <= 0) {
-                return null; // some slot has no viable variant
-            }
-
+            if (bestKey == null || bestCopies <= 0) return null;
             chosenKeys[i] = bestKey;
             perCopyUnits[i] = bestPerCopy;
-            // bestSimAvail is implicitly bounded by per-call need (perCopy * maxCraft)
-            // and also by inventory total; phase 2 below uses it indirectly via
-            // inv.extract(SIMULATE, ∞) for the global aggregation step.
-            // (Suppress unused-warning by referencing.)
-            if (bestSimAvail < 0) bestSimAvail = 0;
+            availCache[i] = bestAvail;
         }
 
-        // Phase 2: aggregate per-variant demand across slots, find global cap.
-        // For each distinct chosen variant K, totalPerCopy[K] = sum of
-        // perCopyUnits[i] over slots i that picked K. Then maxBatchForK =
-        // totalAvailable[K] / totalPerCopy[K]. The global actual is the min.
-        var totalPerCopy = new HashMap<AEKey, Long>();
-        for (int i = 0; i < slots; i++) {
-            totalPerCopy.merge(chosenKeys[i], perCopyUnits[i], Long::sum);
-        }
-
+        // -- Phase 2: cross-slot aggregation ----------------------------------
+        // Most patterns end up with all-distinct chosen keys (condense + no
+        // substitution), so we first probe for any collision via an O(slots²)
+        // scan — ≤ 36 cmps for the worst-case 9-slot pattern, much cheaper
+        // than the HashMap alloc + entrySet iteration of the previous design.
+        // Only on collision do we fall back to the HashMap aggregator.
         long actual = maxCraft;
-        for (var e : totalPerCopy.entrySet()) {
-            long avail = inv.extract(e.getKey(), Long.MAX_VALUE, Actionable.SIMULATE);
-            long perBatch = e.getValue();
-            long canDo = perBatch > 0 ? avail / perBatch : 0;
-            if (canDo < actual) actual = canDo;
-            if (actual <= 0) break;
+        HashMap<AEKey, Long> totalPerCopy = null;
+        boolean hasCollision = false;
+        outer:
+        for (int i = 1; i < slots; i++) {
+            for (int j = 0; j < i; j++) {
+                if (chosenKeys[i].equals(chosenKeys[j])) {
+                    hasCollision = true;
+                    break outer;
+                }
+            }
+        }
+
+        if (!hasCollision) {
+            for (int i = 0; i < slots; i++) {
+                long canDo = availCache[i] / perCopyUnits[i];
+                if (canDo < actual) actual = canDo;
+                if (actual <= 0) return null;
+            }
+        } else {
+            // Collision exists: aggregate demand per unique key. All slots that
+            // picked the same key cached the SAME availCache value (Phase 1
+            // never modulated), so we read availability from the first slot.
+            totalPerCopy = new HashMap<>(slots * 2);
+            for (int i = 0; i < slots; i++) {
+                totalPerCopy.merge(chosenKeys[i], perCopyUnits[i], Long::sum);
+            }
+            boolean[] visited = new boolean[slots];
+            for (int i = 0; i < slots; i++) {
+                if (visited[i]) continue;
+                visited[i] = true;
+                long perBatch = totalPerCopy.get(chosenKeys[i]);
+                long canDo = perBatch > 0 ? availCache[i] / perBatch : 0;
+                if (canDo < actual) actual = canDo;
+                if (actual <= 0) return null;
+                for (int j = i + 1; j < slots; j++) {
+                    if (!visited[j] && chosenKeys[j].equals(chosenKeys[i])) {
+                        visited[j] = true;
+                    }
+                }
+            }
         }
 
         if (actual <= 0) return null;
 
-        // Phase 3: MODULATE-extract per slot using the agreed-upon global actual.
-        long[] extracted = new long[slots];
-        for (int i = 0; i < slots; i++) {
-            long need = perCopyUnits[i] * actual;
-            long got = inv.extract(chosenKeys[i], need, Actionable.MODULATE);
-            extracted[i] = got;
-            if (got < need) {
-                // Should not happen because phase 2 already accounted for cross-slot
-                // demand on the same key; defensive rollback if a race or fuzziness
-                // breaks the simulation invariant.
-                for (int j = 0; j <= i; j++) {
-                    if (extracted[j] > 0) {
-                        inv.insert(chosenKeys[j], extracted[j], Actionable.MODULATE);
+        // -- Phase 3: MODULATE-extract ----------------------------------------
+        // Hot path (no collision): one MODULATE per slot, identical to before.
+        // Collision path: merge same-key demands into a single MODULATE per
+        // unique key — saves the duplicate HashMap remove + listener.onChange
+        // callback that vanilla `ListCraftingInventory.extract(MODULATE)`
+        // would otherwise fire once per slot.
+        if (!hasCollision) {
+            long[] extracted = new long[slots];
+            for (int i = 0; i < slots; i++) {
+                long need = perCopyUnits[i] * actual;
+                long got = inv.extract(chosenKeys[i], need, Actionable.MODULATE);
+                extracted[i] = got;
+                if (got < need) {
+                    for (int j = 0; j <= i; j++) {
+                        if (extracted[j] > 0) {
+                            inv.insert(chosenKeys[j], extracted[j], Actionable.MODULATE);
+                        }
                     }
+                    return null;
                 }
-                return null;
+            }
+        } else {
+            // One MODULATE per unique key; rollback also unique-keyed.
+            var perKeyExtracted = new HashMap<AEKey, Long>(totalPerCopy.size() * 2);
+            for (var e : totalPerCopy.entrySet()) {
+                long need = e.getValue() * actual;
+                long got = inv.extract(e.getKey(), need, Actionable.MODULATE);
+                perKeyExtracted.put(e.getKey(), got);
+                if (got < need) {
+                    for (var ee : perKeyExtracted.entrySet()) {
+                        if (ee.getValue() > 0) {
+                            inv.insert(ee.getKey(), ee.getValue(), Actionable.MODULATE);
+                        }
+                    }
+                    return null;
+                }
             }
         }
 

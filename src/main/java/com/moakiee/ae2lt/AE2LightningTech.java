@@ -28,6 +28,7 @@ import com.moakiee.ae2lt.blockentity.WirelessOverloadedControllerBlockEntity;
 import com.moakiee.ae2lt.blockentity.WirelessReceiverBlockEntity;
 import com.moakiee.ae2lt.item.FixedInfiniteCellItem;
 import com.moakiee.ae2lt.item.FixedInfiniteCellItem.CellOutcome;
+import com.moakiee.ae2lt.extendedae.BatchWheelRegistry;
 import com.moakiee.ae2lt.extendedae.OverloadParallelCoreBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -718,10 +719,12 @@ public class AE2LightningTech {
         EjectModeRegistry.onServerStop();
         WirelessFrequencyManager.onServerStop();
         ResearchNoteGenerator.onServerStopped();
+        BatchWheelRegistry.clear();
     }
 
     private void onServerTickPost(ServerTickEvent.Post event) {
         WirelessFrequencyManager.flushPendingDeviceNotifications();
+        BatchWheelRegistry.tickAll();
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

@@ -30,6 +30,7 @@
     "EjectGhostBEMixin",
     "extendedae.ClusterAssemblerMatrixAccessor",
     "extendedae.ClusterAssemblerMatrixMixin",
+    "extendedae.TileAssemblerMatrixBaseMixin",
     "extendedae.TileAssemblerMatrixCrafterMixin",
     "extendedae.TileAssemblerMatrixPatternBatchMixin"
   ],
