@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "extendedae:block/assembler_matrix/speed_core",
+    "particle": "extendedae:block/assembler_matrix/speed_core"
+  }
+}

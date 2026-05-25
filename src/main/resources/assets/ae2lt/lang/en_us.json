@@ -29,6 +29,7 @@
   "item.ae2lt.overload_singularity": "Overload Singularity",
   "item.ae2lt.ultimate_overload_core": "Ultimate Overload Core",
   "item.ae2lt.lightning_collapse_matrix": "Lightning Collapse Matrix",
+  "block.ae2lt.overload_parallel_core": "Overload Parallel Core",
   "item.ae2lt.debug_lightning_rod": "Debug Lightning Rod",
   "item.ae2lt.debug_lightning_rod.tooltip": "Debug: right-click a lightning rod to call a natural lightning bolt on it. Consumed unless in creative.",
   "item.ae2lt.electro_chime_crystal": "Electro-Chime Crystal",

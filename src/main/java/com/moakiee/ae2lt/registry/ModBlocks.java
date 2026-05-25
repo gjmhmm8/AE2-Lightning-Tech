@@ -18,6 +18,7 @@ import com.moakiee.ae2lt.block.TeslaCoilBlock;
 import com.moakiee.ae2lt.block.AdvancedWirelessOverloadedControllerBlock;
 import com.moakiee.ae2lt.block.WirelessOverloadedControllerBlock;
 import com.moakiee.ae2lt.block.WirelessReceiverBlock;
+import com.moakiee.ae2lt.extendedae.OverloadParallelCoreBlock;
 import com.moakiee.ae2lt.blockentity.OverloadedPatternProviderBlockEntity;
 import java.util.function.Supplier;
 import net.minecraft.world.item.BlockItem;
@@ -32,6 +33,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 
 public final class ModBlocks {
     private static final String APPFLUX_MODID = "appflux";
+    private static final String EXTENDEDAE_MODID = "extendedae";
 
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(AE2LightningTech.MODID);
 
@@ -160,6 +162,9 @@ public final class ModBlocks {
     public static final DeferredBlock<AdvancedWirelessOverloadedControllerBlock> ADVANCED_WIRELESS_OVERLOADED_CONTROLLER =
             registerBlock("advanced_wireless_overloaded_controller", AdvancedWirelessOverloadedControllerBlock::new);
 
+    public static final DeferredBlock<OverloadParallelCoreBlock> OVERLOAD_PARALLEL_CORE =
+            registerBlock("overload_parallel_core", OverloadParallelCoreBlock::new, ModBlocks::isExtendedAeLoaded);
+
     private ModBlocks() {
     }
 
@@ -194,7 +199,15 @@ public final class ModBlocks {
         return OVERLOADED_POWER_SUPPLY != null;
     }
 
+    public static boolean hasOverloadParallelCore() {
+        return OVERLOAD_PARALLEL_CORE != null;
+    }
+
     private static boolean isAppFluxLoaded() {
         return ModList.get().isLoaded(APPFLUX_MODID);
+    }
+
+    private static boolean isExtendedAeLoaded() {
+        return ModList.get().isLoaded(EXTENDEDAE_MODID);
     }
 }

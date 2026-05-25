@@ -28,6 +28,7 @@ import com.moakiee.ae2lt.blockentity.WirelessOverloadedControllerBlockEntity;
 import com.moakiee.ae2lt.blockentity.WirelessReceiverBlockEntity;
 import com.moakiee.ae2lt.item.FixedInfiniteCellItem;
 import com.moakiee.ae2lt.item.FixedInfiniteCellItem.CellOutcome;
+import com.moakiee.ae2lt.extendedae.OverloadParallelCoreBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -103,6 +104,9 @@ public class AE2LightningTech {
                         output.accept(ModBlocks.OVERLOADED_CONTROLLER);
                         output.accept(ModBlocks.OVERLOADED_PATTERN_PROVIDER);
                         output.accept(ModBlocks.OVERLOADED_INTERFACE);
+                        if (ModBlocks.hasOverloadParallelCore()) {
+                            output.accept(ModBlocks.OVERLOAD_PARALLEL_CORE);
+                        }
                         if (ModBlocks.hasOverloadedPowerSupply()) {
                             output.accept(ModBlocks.OVERLOADED_POWER_SUPPLY);
                         }
@@ -556,6 +560,19 @@ public class AE2LightningTech {
                         powerSupplyBeType,
                         null,
                         OverloadedPowerSupplyBlockEntity::serverTick);
+            }
+
+            if (ModBlocks.hasOverloadParallelCore()) {
+                var parallelCoreBlock = ModBlocks.OVERLOAD_PARALLEL_CORE.get();
+                var parallelCoreBeType = ModBlockEntities.OVERLOAD_PARALLEL_CORE.get();
+                parallelCoreBlock.setBlockEntity(
+                        OverloadParallelCoreBlockEntity.class,
+                        parallelCoreBeType,
+                        null,
+                        null);
+                AEBaseBlockEntity.registerBlockEntityItem(
+                        parallelCoreBeType,
+                        parallelCoreBlock.asItem());
             }
 
             appeng.blockentity.AEBaseBlockEntity.registerBlockEntityItem(

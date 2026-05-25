@@ -17,6 +17,7 @@ import com.moakiee.ae2lt.blockentity.TeslaCoilBlockEntity;
 import com.moakiee.ae2lt.blockentity.AdvancedWirelessOverloadedControllerBlockEntity;
 import com.moakiee.ae2lt.blockentity.WirelessOverloadedControllerBlockEntity;
 import com.moakiee.ae2lt.blockentity.WirelessReceiverBlockEntity;
+import com.moakiee.ae2lt.extendedae.OverloadParallelCoreBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -140,6 +141,16 @@ public final class ModBlockEntities {
                             AdvancedWirelessOverloadedControllerBlockEntity::new,
                             ModBlocks.ADVANCED_WIRELESS_OVERLOADED_CONTROLLER.get())
                             .build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<OverloadParallelCoreBlockEntity>>
+            OVERLOAD_PARALLEL_CORE = ModBlocks.hasOverloadParallelCore()
+                    ? BLOCK_ENTITY_TYPES.register(
+                            "overload_parallel_core",
+                            () -> BlockEntityType.Builder.of(
+                                    OverloadParallelCoreBlockEntity::new,
+                                    ModBlocks.OVERLOAD_PARALLEL_CORE.get())
+                                    .build(null))
+                    : null;
 
     @SuppressWarnings("DataFlowIssue")
     public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<GhostOutputBlockEntity>>

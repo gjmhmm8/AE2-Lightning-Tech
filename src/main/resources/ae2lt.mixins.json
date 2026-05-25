@@ -27,7 +27,11 @@
     "PathingCalculationCapMixin",
     "ControllerValidatorMixin",
     "EjectCapabilityMixin",
-    "EjectGhostBEMixin"
+    "EjectGhostBEMixin",
+    "extendedae.ClusterAssemblerMatrixAccessor",
+    "extendedae.ClusterAssemblerMatrixMixin",
+    "extendedae.TileAssemblerMatrixCrafterMixin",
+    "extendedae.TileAssemblerMatrixPatternBatchMixin"
   ],
   "client": [
     "client.CableBusRenderStateMixin",

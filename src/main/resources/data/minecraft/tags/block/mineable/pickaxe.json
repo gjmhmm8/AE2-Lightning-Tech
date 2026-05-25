@@ -15,6 +15,10 @@
     "ae2lt:overloaded_pattern_provider",
     "ae2lt:overloaded_interface",
     {
+      "id": "ae2lt:overload_parallel_core",
+      "required": false
+    },
+    {
       "id": "ae2lt:overloaded_power_supply",
       "required": false
     },

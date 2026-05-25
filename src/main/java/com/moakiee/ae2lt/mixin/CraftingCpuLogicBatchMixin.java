@@ -25,6 +25,7 @@ import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
 
 import com.moakiee.ae2lt.logic.batch.BatchExecutor;
+import com.moakiee.ae2lt.logic.batch.BatchProviderFilterIterable;
 import com.moakiee.ae2lt.logic.batch.VanillaBatchJobView;
 
 /**
@@ -120,53 +121,6 @@ public abstract class CraftingCpuLogicBatchMixin {
         if (ae2lt$batchedByTask.isEmpty()) return raw;
         var perTask = ae2lt$batchedByTask.get(details);
         if (perTask == null || perTask.isEmpty()) return raw;
-        return new BatchFilterIterable(raw, perTask);
-    }
-
-    /**
-     * Lazy filter iterable that hides providers our batch loop already handled
-     * for the current task from vanilla's iteration in {@code executeCrafting}.
-     * Allocated only when {@link #ae2lt$batchedByTask} has entries for the
-     * current task.
-     */
-    @Unique
-    private static final class BatchFilterIterable implements Iterable<ICraftingProvider> {
-        private final Iterable<ICraftingProvider> raw;
-        private final IdentityHashMap<ICraftingProvider, Boolean> excluded;
-
-        BatchFilterIterable(Iterable<ICraftingProvider> raw,
-                            IdentityHashMap<ICraftingProvider, Boolean> excluded) {
-            this.raw = raw;
-            this.excluded = excluded;
-        }
-
-        @Override
-        public java.util.Iterator<ICraftingProvider> iterator() {
-            var it = raw.iterator();
-            return new java.util.Iterator<ICraftingProvider>() {
-                ICraftingProvider next;
-                boolean ready;
-
-                @Override
-                public boolean hasNext() {
-                    while (!ready && it.hasNext()) {
-                        var p = it.next();
-                        if (!excluded.containsKey(p)) {
-                            next = p;
-                            ready = true;
-                            return true;
-                        }
-                    }
-                    return ready;
-                }
-
-                @Override
-                public ICraftingProvider next() {
-                    if (!ready && !hasNext()) throw new java.util.NoSuchElementException();
-                    ready = false;
-                    return next;
-                }
-            };
-        }
+        return new BatchProviderFilterIterable(raw, perTask);
     }
 }

@@ -1,0 +1,43 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "extendedae"
+    }
+  ],
+  "type": "ae2lt:lightning_assembly",
+  "priority": 0,
+  "inputs": [
+    {
+      "ingredient": {
+        "item": "extendedae:assembler_matrix_crafter"
+      },
+      "count": 4
+    },
+    {
+      "ingredient": {
+        "item": "extendedae:assembler_matrix_speed"
+      },
+      "count": 4
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:ultimate_overload_core"
+      },
+      "count": 1
+    },
+    {
+      "ingredient": {
+        "item": "ae2lt:lightning_collapse_matrix"
+      },
+      "count": 1
+    }
+  ],
+  "result": {
+    "id": "ae2lt:overload_parallel_core",
+    "count": 1
+  },
+  "totalEnergy": 2000000,
+  "lightningCost": 32,
+  "lightningTier": "extreme_high_voltage"
+}
